@@ -18,7 +18,11 @@ _usage()
    libimobiledevice-suit, iOS communication suit (includes all utilities).
    pzb, Partical zip downloader.
    plget, Lightweight PLIST parser.
-   tsschecker, TSS checker."
+   tsschecker, TSS checker.
+   kplooshfinder, Modern kernel patcher.
+   img4lib, Modern img4 manipulation utility.
+   img4tool, img4 manipulation utility.
+   plist2json, Converts PLIST into JSON format."
 	exit 0
 
 }
@@ -29,10 +33,10 @@ _config()
 # options
 		params="$@"
 		[ -z "$params" ] && _usage
-	if [ "$(id -u)" = '0' ]; then
-		echo -e "For some reasons you won't be able to run this script as root !\nPlease run the script normally instead.\nAttention: the script will only request a root access only when it installs the missing packages."
-		exit 1
-	fi
+#	if [ "$(id -u)" = '0' ]; then
+#		echo -e "For some reasons you won't be able to run this script as root !\nPlease run the script normally instead.\nAttention: the script will only request a root access only when it installs the missing packages."
+#		exit 1
+#	fi
 	if [[ "$params" = *"--no-virtual"* ]]; then
 		virtual_mode="no"
 		builded_tag="builded_virtual.tag"
@@ -66,6 +70,7 @@ _config()
 
 	if [ "$host" = "termux" ]; then
 		home=~
+		export CONFIG_SHELL=$PREFIX/bin/bash # fixes configure issues
 		[ "$CX" = "clang" ] && dep="clang binutils-is-llvm git which root-repo automake autoconf make libtool pkg-config m4" || \
 						dep="clang binutils-is-llvm git which root-repo automake autoconf make libtool pkg-config m4"
 	elif [[ "$host" =~ (debian|ubuntu) ]]; then
@@ -86,9 +91,9 @@ _config()
 		s="installed"
 		y="-y"
 	elif [[ "$host" =~ (debian|ubuntu) ]]; then
-		dep_install_cmd="sudo apt install"
+		dep_install_cmd="apt install"
 		dep_check_cmd="apt list --installed"
-		dep_update_cmd="sudo apt update"
+		dep_update_cmd="apt update"
 		s="installed"
 		y="-y"
 	fi
@@ -106,9 +111,6 @@ _config()
 		src_dir="$home/utils-src"
 		root_dir="$PREFIX"
 		org_prefix="$PREFIX"
-	else
-		echo "An error occurred while trying to check the install location."
-		exit 1
 	fi
 		echo "Source location: $src_dir"
 		echo "Root location: $root_dir"
@@ -162,6 +164,22 @@ _build_selector()
 	fi
 	if [[ "$params" = *"tsschecker"* ]]; then
 		build_list="libgeneral libfragmentzip libplist libirecovery tsschecker"
+		quick_build
+	fi
+	if [[ "$params" = *"img4tool"* ]]; then
+		build_list="libplist libgeneral lzfse img4tool"
+		quick_build
+	fi
+	if [[ "$params" = *"kplooshfinder"* ]]; then
+		build_list="kplooshfinder"
+		quick_build
+	fi
+	if [[ "$params" = *"plist2json"* ]]; then
+		build_list="portableproplib plist2json"
+		quick_build
+	fi
+	if [[ "$params" = *"img4lib"* ]]; then
+		build_list="lzfse img4lib"
 		quick_build
 	fi
 
@@ -327,7 +345,7 @@ _utildeps()
 			submodules="no"
 	elif [ "$1" = "ifuse" ]; then
 		if [ "$host" = "termux" ]; then
-			dep="libfuse2"
+			dep="libfuse3"
 			libs=""
 		elif [[ "$host" =~ (debian|ubuntu) ]]; then
 			dep="libfuse3-dev"
@@ -350,7 +368,7 @@ _utildeps()
 			build_cmd="make"
 			clean_cmd="make clean"
 			install_cmd="make install"
-			repo="https://github.com/tihmstar/libgeneral"
+			repo="https://github.com/mast3rz3ro/libgeneral"
 			submodules="no"
 	elif [ "$1" = "libfragmentzip" ]; then
 		if [ "$host" = "termux" ]; then
@@ -383,7 +401,7 @@ _utildeps()
 		if [ "$host" = "termux" ]; then
 			dep="libcurl libzip openssl zlib" #autoconf-archive
 			libs=""
-		elif [ "$host" = "debian" ]; then
+		elif [[ "$host" =~ (debian|ubuntu) ]]; then
 			dep="libcurl4-openssl-dev libzip4 openssl zlib1g"
 			libs=""
 		fi
@@ -394,6 +412,79 @@ _utildeps()
 			install_cmd="make install"
 			repo="https://github.com/mast3rz3ro/tsschecker"
 			submodules="yes"
+
+	elif [ "$1" = "lzfse" ]; then
+		if [[ "$host" =~ (debian|ubuntu|termux) ]]; then
+			dep=""
+			libs=""
+		fi
+			src=""
+			configure=""
+			build_cmd="make"
+			clean_cmd="make clean"
+			install_cmd="make install INSTALL_PREFIX=$PREFIX"
+			repo="https://github.com/lzfse/lzfse"
+			submodules="no"
+	elif [ "$1" = "img4tool" ]; then
+		if [[ "$host" =~ (debian|ubuntu|termux) ]]; then
+			dep=""
+			libs=""
+		fi
+			src=""
+			configure="autogen.sh --prefix=$PREFIX"
+			build_cmd="make"
+			clean_cmd="make clean"
+			install_cmd="make install"
+			repo="https://github.com/tihmstar/img4tool"
+			submodules="no"
+	elif [ "$1" = "kplooshfinder" ]; then
+		if [[ "$host" =~ (debian|ubuntu|termux) ]]; then
+			dep=""
+			libs=""
+		fi
+			src=""
+			configure=""
+			build_cmd="make"
+			clean_cmd="make clean"
+			install_cmd="make install INSTALL_PREFIX=$PREFIX"
+			repo="https://github.com/plooshi/KPlooshFinder"
+			submodules="yes"
+	elif [ "$1" = "portableproplib" ]; then
+		if [[ "$host" =~ (debian|ubuntu|termux) ]]; then
+			dep=""
+			libs=""
+		fi
+			src=""
+			configure=""
+			build_cmd="make"
+			clean_cmd="make clean"
+			install_cmd="make install INSTALL_PREFIX=$PREFIX"
+			repo="https://github.com/void-linux/portableproplib"
+			submodules="no"
+	elif [ "$1" = "plist2json" ]; then
+		if [[ "$host" =~ (debian|ubuntu|termux) ]]; then
+			dep=""
+			libs=""
+		fi
+			src=""
+			configure=""
+			build_cmd="make"
+			clean_cmd="make clean"
+			install_cmd="make install INSTALL_PREFIX=$PREFIX"
+			repo="https://github.com/void-linux/plist2json"
+			submodules="no"
+	elif [ "$1" = "img4lib" ]; then
+		if [[ "$host" =~ (debian|ubuntu|termux) ]]; then
+			dep=""
+			libs=""
+		fi
+			src=""
+			configure=""
+			build_cmd="make"
+			clean_cmd="make clean"
+			install_cmd="make install INSTALL_PREFIX=$PREFIX"
+			repo="https://github.com/void-linux/plist2json"
+			submodules="no"
 	fi
 
 }
@@ -478,7 +569,7 @@ build()
 			echo -ne "\tCleaning with: '${clean_cmd}'\n"
 			$(cd "$src_dir/$x/$src" && ($clean_cmd) >/dev/null)
 			echo -ne "\tConfiguring with: '${configure}'\n"
-		if $(cd "$src_dir/$x/$src" && ./$configure >/dev/null); then
+		if [ -z "$configure" ] || $(cd "$src_dir/$x/$src" && ./$configure >/dev/null); then
 				echo -ne "\tCompiling with: '${build_cmd}'\n"
 			if $(cd "$src_dir/$x/$src" && ($build_cmd) >/dev/null); then
 					echo -ne "\tInstalling with: '${install_cmd}'\n"
@@ -491,8 +582,8 @@ build()
 				exit 1
 			fi
 		else
-				echo "An error occurred while trying to configure."
-				exit 1
+			echo "An error occurred while trying to configure."
+			exit 1
 		fi
 	done
 
