@@ -8,11 +8,11 @@ _usage()
 	echo -e "Usage: $0 [options] target
   Parameters:
    --clang, --gcc, Prefer GNU/Clang compiler.
-   --no-virtual\t Install target utility into system.
+   --no-virtual, Install target utility into system.
   Targets:\tDescription:
    libimobiledevice, iOS communication.
-   libplist, PLIST converter/decoder.
-   libirecovery, Recovery/DFU communication.
+   plistutil, PLIST converter/decoder.
+   irecovery, Recovery/DFU communication.
    libideviceactivation, Device activation.
    ideviceinstaller, IPA installer.
    libimobiledevice-suit, iOS communication suit (includes all utilities).
@@ -20,8 +20,16 @@ _usage()
    plget, Lightweight PLIST parser.
    tsschecker, TSS checker.
    kplooshfinder, Modern kernel patcher.
-   img4lib, Modern img4 manipulation utility.
+   kernel64patcher, Legacy kernel patcher.
+   kerneldiff, Kernel differs finder.
+   img4, Modern utility for img4 manipulation.
+   oldimgtool, Modern utility for img3 manipulation .
    img4tool, img4 manipulation utility.
+   img3tool, img3 manipulation utility.
+   iboot64patcher, thimstar's iboot patcher.
+   iboot32patcher, iH8sn0w's iboot patcher.
+   hfsplus, checkra1n's fork used for ramdisk manipulation.
+   gaster, Better implementation of checkm8.
    plist2json, Converts PLIST into JSON format."
 	exit 0
 
@@ -31,12 +39,14 @@ _config()
 {
 
 # options
-		params="$@"
-		[ -z "$params" ] && _usage
+		[ -z "$1" ] && _usage
+		params="$@"; params="${params,,}"
+
 #	if [ "$(id -u)" = '0' ]; then
 #		echo -e "For some reasons you won't be able to run this script as root !\nPlease run the script normally instead.\nAttention: the script will only request a root access only when it installs the missing packages."
 #		exit 1
 #	fi
+
 	if [[ "$params" = *"--no-virtual"* ]]; then
 		virtual_mode="no"
 		builded_tag="builded_virtual.tag"
@@ -45,11 +55,11 @@ _config()
 		builded_tag="builded.tag"
 	fi
 	if [[ "$params" = *"--clang"* ]]; then
-		CX="clang"
+		CX="clang"; CXX="clang++"
 	elif [[ "$params" = *"--gcc"* ]]; then
-		CX="gcc"
+		CX="gcc"; CXX="g++"
 	else
-		CX="gcc"
+		CX="gcc"; CXX="g++"
 	fi
 
 # check host
@@ -130,6 +140,10 @@ _build_selector()
 		build_list="plget"
 		quick_build
 	fi
+	if [[ "$params" = *"plistutil"* ]]; then
+		build_list="libplist"
+		quick_build
+	fi
 	if [[ "$params" = *"libimobiledevice"* ]]; then
 		build_list="libplist libimobiledevice-glue libusbmuxd libtatsu libimobiledevice usbmuxd"
 		quick_build
@@ -138,8 +152,8 @@ _build_selector()
 		build_list="ideviceinstaller"
 		quick_build
 	fi
-	if [[ "$params" = *"libirecovery"* ]]; then
-		build_list="libirecovery"
+	if [[ "$params" = *"irecovery"* ]]; then
+		build_list="libplist libimobiledevice-glue libirecovery"
 		quick_build
 	fi
 	if [[ "$params" = *"idevicerestore"* ]]; then
@@ -166,20 +180,52 @@ _build_selector()
 		build_list="libgeneral libfragmentzip libplist libirecovery tsschecker"
 		quick_build
 	fi
+	if [[ "$params" = *"plist2json"* ]]; then
+		build_list="portableproplib plist2json"
+		quick_build
+	fi
+	if [[ "$params" = *"img4"* ]]; then
+		build_list="lzfse img4lib"
+		quick_build
+	fi
 	if [[ "$params" = *"img4tool"* ]]; then
 		build_list="libplist libgeneral lzfse img4tool"
+		quick_build
+	fi
+	if [[ "$params" = *"img3tool"* ]]; then
+		build_list="libplist libgeneral img3tool"
+		quick_build
+	fi
+	if [[ "$params" = *"iboot64patcher"* ]]; then
+		build_list="libgeneral libinsn img3tool img4tool libpatchfinder libipatcher iboot64patcher"
+		quick_build
+	fi
+	if [[ "$params" = *"iboot32patcher"* ]]; then
+		build_list="iboot32patcher"
 		quick_build
 	fi
 	if [[ "$params" = *"kplooshfinder"* ]]; then
 		build_list="kplooshfinder"
 		quick_build
 	fi
-	if [[ "$params" = *"plist2json"* ]]; then
-		build_list="portableproplib plist2json"
+	if [[ "$params" = *"kernel64patcher"* ]]; then
+		build_list="libpatchfinder kernel64patcher"
 		quick_build
 	fi
-	if [[ "$params" = *"img4lib"* ]]; then
-		build_list="lzfse img4lib"
+	if [[ "$params" = *"kerneldiff"* ]]; then
+		build_list="kerneldiff_C"
+		quick_build
+	fi
+	if [[ "$params" = *"oldimgtool"* ]]; then
+		build_list="oldimgtool"
+		quick_build
+	fi
+	if [[ "$params" = *"hfsplus"* ]]; then
+		build_list="hfsplus"
+		quick_build
+	fi
+	if [[ "$params" = *"gaster"* ]]; then
+		build_list="gaster"
 		quick_build
 	fi
 
@@ -188,7 +234,8 @@ _build_selector()
 
 _utildeps()
 {
-	
+
+		patch=""
 	if [ "$1" = "plget" ]; then
 		if [ "$host" = "termux" ]; then
 			dep="libxml2 automake"
@@ -210,7 +257,7 @@ _utildeps()
 			libs=""
 		fi
 			src=""
-			configure="autogen.sh --prefix=$PREFIX --without-cython"
+			configure="./autogen.sh --prefix=$PREFIX --without-cython"
 			build_cmd="make"
 			clean_cmd="make clean"
 			install_cmd="make install"
@@ -222,7 +269,7 @@ _utildeps()
 			libs=""
 		fi
 			src=""
-			configure="autogen.sh --prefix=$PREFIX"
+			configure="./autogen.sh --prefix=$PREFIX"
 			build_cmd="make"
 			clean_cmd="make clean"
 			install_cmd="make install"
@@ -234,7 +281,7 @@ _utildeps()
 			libs=""
 		fi
 			src=""
-			configure="autogen.sh --prefix=$PREFIX"
+			configure="./autogen.sh --prefix=$PREFIX"
 			build_cmd="make"
 			clean_cmd="make clean"
 			install_cmd="make install"
@@ -244,11 +291,11 @@ _utildeps()
 		if [ "$host" = "termux" ]; then
 			dep="libusb"
 			libs=""
-			configure="autogen.sh --prefix=$PREFIX --without-systemd"
+			configure="./autogen.sh --prefix=$PREFIX --without-systemd"
 		elif [[ "$host" =~ (debian|ubuntu) ]]; then
 			dep="libusb-1.0-0-dev"
 			libs=""
-			configure="autogen.sh --prefix=$PREFIX"
+			configure="./autogen.sh --prefix=$PREFIX"
 		fi
 			src=""
 			build_cmd="make"
@@ -265,7 +312,7 @@ _utildeps()
 			libs=""
 		fi
 			src=""
-			configure="autogen.sh --prefix=$PREFIX"
+			configure="./autogen.sh --prefix=$PREFIX"
 			build_cmd="make"
 			clean_cmd="make clean"
 			install_cmd="make install"
@@ -280,7 +327,7 @@ _utildeps()
 			libs=""
 		fi
 			src=""
-			configure="autogen.sh --prefix=$PREFIX --without-cython"
+			configure="./autogen.sh --prefix=$PREFIX --without-cython"
 			build_cmd="make"
 			clean_cmd="make clean"
 			install_cmd="make install"
@@ -295,7 +342,7 @@ _utildeps()
 			libs=""
 		fi
 			src=""
-			configure="autogen.sh --prefix=$PREFIX"
+			configure="./autogen.sh --prefix=$PREFIX"
 			build_cmd="make"
 			clean_cmd="make clean"
 			install_cmd="make install"
@@ -307,7 +354,7 @@ _utildeps()
 			libs=""
 		fi
 			src=""
-			configure="autogen.sh --prefix=$PREFIX"
+			configure="./autogen.sh --prefix=$PREFIX"
 			build_cmd="make"
 			clean_cmd="make clean"
 			install_cmd="make install"
@@ -322,7 +369,7 @@ _utildeps()
 			libs=""
 		fi
 			src=""
-			configure="autogen.sh --prefix=$PREFIX"
+			configure="./autogen.sh --prefix=$PREFIX"
 			build_cmd="make"
 			clean_cmd="make clean"
 			install_cmd="make install"
@@ -337,7 +384,7 @@ _utildeps()
 			libs=""
 		fi
 			src=""
-			configure="autogen.sh --prefix=$PREFIX"
+			configure="./autogen.sh --prefix=$PREFIX"
 			build_cmd="make"
 			clean_cmd="make clean"
 			install_cmd="make install"
@@ -352,23 +399,27 @@ _utildeps()
 			libs=""
 		fi
 			src=""
-			configure="autogen.sh --prefix=$PREFIX"
+			configure="./autogen.sh --prefix=$PREFIX"
 			build_cmd="make"
 			clean_cmd="make clean"
 			install_cmd="make install"
 			repo="https://github.com/libimobiledevice/ifuse"
 			submodules="no"
 	elif [ "$1" = "libgeneral" ]; then
-		if [[ "$host" =~ (debian|ubuntu|termux) ]]; then
+		if [ "$host" = "termux" ]; then
+			dep=""
+			libs=""
+			patch="libgeneral"
+		elif [[ "$host" =~ (debian|ubuntu) ]]; then
 			dep=""
 			libs=""
 		fi
 			src=""
-			configure="autogen.sh --prefix=$PREFIX"
+			configure="./autogen.sh --prefix=$PREFIX"
 			build_cmd="make"
 			clean_cmd="make clean"
 			install_cmd="make install"
-			repo="https://github.com/mast3rz3ro/libgeneral"
+			repo="https://github.com/tihmstar/libgeneral"
 			submodules="no"
 	elif [ "$1" = "libfragmentzip" ]; then
 		if [ "$host" = "termux" ]; then
@@ -379,7 +430,7 @@ _utildeps()
 			libs=""
 		fi
 			src=""
-			configure="autogen.sh --prefix=$PREFIX"
+			configure="./autogen.sh --prefix=$PREFIX"
 			build_cmd="make"
 			clean_cmd="make clean"
 			install_cmd="make install"
@@ -391,7 +442,7 @@ _utildeps()
 			libs=""
 		fi
 			src=""
-			configure="autogen.sh --prefix=$PREFIX"
+			configure="./autogen.sh --prefix=$PREFIX"
 			build_cmd="make"
 			clean_cmd="make clean"
 			install_cmd="make install"
@@ -406,7 +457,7 @@ _utildeps()
 			libs=""
 		fi
 			src=""
-			configure="autogen.sh --prefix=$PREFIX"
+			configure="./autogen.sh --prefix=$PREFIX"
 			build_cmd="make"
 			clean_cmd="make clean"
 			install_cmd="make install"
@@ -425,13 +476,25 @@ _utildeps()
 			install_cmd="make install INSTALL_PREFIX=$PREFIX"
 			repo="https://github.com/lzfse/lzfse"
 			submodules="no"
+	elif [ "$1" = "img4lib" ]; then
+		if [[ "$host" =~ (debian|ubuntu|termux) ]]; then
+			dep=""
+			libs=""
+		fi
+			src=""
+			configure=""
+			build_cmd="make"
+			clean_cmd="make clean"
+			install_cmd="cp $src_dir/img4lib/img4 $PREFIX/bin/"
+			repo="https://github.com/xerub/img4lib"
+			submodules="no"
 	elif [ "$1" = "img4tool" ]; then
 		if [[ "$host" =~ (debian|ubuntu|termux) ]]; then
 			dep=""
 			libs=""
 		fi
 			src=""
-			configure="autogen.sh --prefix=$PREFIX"
+			configure="./autogen.sh --prefix=$PREFIX"
 			build_cmd="make"
 			clean_cmd="make clean"
 			install_cmd="make install"
@@ -446,7 +509,7 @@ _utildeps()
 			configure=""
 			build_cmd="make"
 			clean_cmd="make clean"
-			install_cmd="make install INSTALL_PREFIX=$PREFIX"
+			install_cmd="cp $src_dir/KPlooshFinder/KPlooshFinder $PREFIX/bin/"
 			repo="https://github.com/plooshi/KPlooshFinder"
 			submodules="yes"
 	elif [ "$1" = "portableproplib" ]; then
@@ -473,29 +536,198 @@ _utildeps()
 			install_cmd="make install INSTALL_PREFIX=$PREFIX"
 			repo="https://github.com/void-linux/plist2json"
 			submodules="no"
-	elif [ "$1" = "img4lib" ]; then
+	elif [ "$1" = "img3tool" ]; then
+		if [ "$host" = "termux" ]; then
+			dep="openssl zlib"
+			libs=""
+		elif [[ "$host" =~ (debian|ubuntu) ]]; then
+			dep="libcurl4-openssl-dev"
+			libs=""
+		fi
+			src=""
+			configure="./autogen.sh --prefix=$PREFIX"
+			build_cmd="make"
+			clean_cmd="make clean"
+			install_cmd="make install INSTALL_PREFIX=$PREFIX"
+			repo="https://github.com/tihmstar/img3tool"
+			submodules="no"
+	elif [ "$1" = "libinsn" ]; then
+		if [ "$host" = "termux" ]; then
+			dep=""
+			libs=""
+			patch="libinsn"
+		elif [[ "$host" =~ (debian|ubuntu) ]]; then
+			dep=""
+			libs=""
+		fi
+			src=""
+			configure="./autogen.sh --prefix=$PREFIX"
+			build_cmd="make"
+			clean_cmd="make clean"
+			install_cmd="make install INSTALL_PREFIX=$PREFIX"
+			repo="https://github.com/tihmstar/libinsn"
+			submodules="no"
+	elif [ "$1" = "libpatchfinder" ]; then
+		if [[ "$host" =~ (debian|ubuntu|termux) ]]; then
+			dep=""
+			libs=""
+			patch="libpatchfinder"
+		fi
+			src=""
+			configure="./autogen.sh --prefix=$PREFIX"
+			build_cmd="make"
+			clean_cmd="make clean"
+			install_cmd="make install INSTALL_PREFIX=$PREFIX"
+			repo="https://github.com/tihmstar/libpatchfinder"
+			submodules="no"
+	elif [ "$1" = "libipatcher" ]; then
+		if [[ "$host" =~ (debian|ubuntu|termux) ]]; then
+			dep=""
+			libs=""
+		fi
+			src=""
+			configure="./autogen.sh --prefix=$PREFIX"
+			build_cmd="make"
+			clean_cmd="make clean"
+			install_cmd="make install INSTALL_PREFIX=$PREFIX"
+			repo="https://github.com/tihmstar/libipatcher"
+			submodules="no"
+	elif [ "$1" = "iboot64patcher" ]; then
+		if [[ "$host" =~ (debian|ubuntu|termux) ]]; then
+			dep=""
+			libs=""
+		fi
+			src=""
+			configure="./autogen.sh --prefix=$PREFIX"
+			build_cmd="make"
+			clean_cmd="make clean"
+			install_cmd="make install INSTALL_PREFIX=$PREFIX"
+			repo="https://github.com/mast3rz3ro/iBoot64Patcher"
+			submodules="no"
+	elif [ "$1" = "iboot32patcher" ]; then
 		if [[ "$host" =~ (debian|ubuntu|termux) ]]; then
 			dep=""
 			libs=""
 		fi
 			src=""
 			configure=""
-			build_cmd="make"
-			clean_cmd="make clean"
-			install_cmd="make install INSTALL_PREFIX=$PREFIX"
-			repo="https://github.com/void-linux/plist2json"
+			build_cmd="$CX iBoot32Patcher.c finders.c functions.c patchers.c -Wno-multichar -I. -o iBoot32Patcher"
+			clean_cmd=""
+			install_cmd="cp $src_dir/iBoot32Patcher/iBoot32Patcher $PREFIX/bin/"
+			repo="https://github.com/iH8sn0w/iBoot32Patcher"
+			submodules="no"
+	elif [ "$1" = "kernel64patcher" ]; then
+		if [[ "$host" =~ (debian|ubuntu|termux) ]]; then
+			dep=""
+			libs=""
+		fi
+			src=""
+			configure=""
+			build_cmd="$CX Kernel64Patcher.c -I$PREFIX/include -o Kernel64Patcher"
+			clean_cmd=""
+			install_cmd="cp $src_dir/Kernel64Patcher/Kernel64Patcher $PREFIX/bin/"
+			repo="https://github.com/Ralph0045/Kernel64Patcher"
+			submodules="no"
+	elif [ "$1" = "kerneldiff_C" ]; then
+		if [[ "$host" =~ (debian|ubuntu|termux) ]]; then
+			dep=""
+			libs=""
+			patch="kerneldiff_C"
+		fi
+			src=""
+			configure=""
+			build_cmd="$CX kerneldiff.c -o kerneldiff"
+			clean_cmd=""
+			install_cmd="cp $src_dir/kerneldiff_C/kerneldiff $PREFIX/bin/"
+			repo="https://github.com/verygenericname/kerneldiff_C"
+			submodules="no"
+	elif [ "$1" = "oldimgtool" ]; then
+		if [[ "$host" =~ (debian|ubuntu|termux) ]]; then
+			dep=""
+			libs=""
+			patch="oldimgtool"
+		fi
+			src=""
+			configure=""
+			build_cmd="cargo build"
+			clean_cmd=""
+			install_cmd="cp target/debug/oldimgtool $PREFIX/bin/"
+			repo="https://github.com/justtryingthingsout/oldimgtool"
+			submodules="no"
+	elif [ "$1" = "hfsplus" ]; then
+		if [ "$host" = "termux" ]; then
+			dep=""
+			libs="android"
+		elif [[ "$host" =~ (debian|ubuntu) ]]; then
+			dep=""
+			libs=""
+		fi
+			src=""
+			configure="cmake . -DCMAKE_INSTALL_PREFIX=$PREFIX"
+			build_cmd="make -C hfs"
+			clean_cmd=""
+			install_cmd="cp hfs/hfsplus $PREFIX/bin/"
+			repo="https://github.com/verygenericname/libdmg-hfsplus"
+			submodules="no"
+	elif [ "$1" = "gaster" ]; then
+		if [ "$host" = "termux" ]; then
+			dep="libusb vim"
+			libs=""
+		elif [[ "$host" =~ (debian|ubuntu) ]]; then
+			dep="libusb-1.0-0-dev vim"
+			libs=""
+		fi
+			src=""
+			configure=""
+			build_cmd="make libusb"
+			clean_cmd=""
+			install_cmd="cp gaster $PREFIX/bin/"
+			repo="https://github.com/0x7ff/gaster"
 			submodules="no"
 	fi
 
 }
 
+_patch()
+{
+
+	local x
+		echo -e "\tApplying patches..."
+	if [ "$1" = "oldimgtool" ]; then
+		export CARGO_HOME="$src_dir/.cargo"
+		sed -i 's/bzero(sp,/memset(sp, 0,/' "$src_dir/$1/src/ext/compression.c"
+	elif [ "$1" = "kerneldiff_C" ]; then
+		sed -i '1d' "$src_dir/$1/kerneldiff.c"
+	elif [ "$1" = "libinsn" ]; then
+		sed -i 's/esac/  linux*)\n  LDFLAGS+=" $($CC -print-libgcc-file-name)"\n    \;\;\nesac/' "$src_dir/$1/configure.ac"
+	elif [ "$1" = "libgeneral" ]; then
+		sed -i 's/LDFLAGS+="/LDFLAGS+=" $($CC -print-libgcc-file-name)/' "$src_dir/$1/configure.ac"
+	elif [ "$1" = "libpatchfinder" ]; then
+			x="https://github.com/apple-oss-distributions/cctools/archive/refs/tags/cctools-973.0.1.tar.gz"
+			mkdir -p "$src_dir/tmp/"
+		if [ -s "$src_dir/cctools.tar.gz" ]; then
+			:
+		elif curl -L "$x" -o "$src_dir/cctools.tar.gz"; then
+			:
+		else
+			exit 1
+		fi
+			tar -xzf "$src_dir/cctools.tar.gz" -C "$src_dir/tmp/"
+			mv $src_dir/tmp/cctoo* "$src_dir/tmp/cctools"
+			sed -i 's_#include_//_g' "$src_dir/tmp/cctools/include/mach-o/loader.h"
+			sed -i -e 's=<stdint.h>=\n#include <stdint.h>\ntypedef int integer_t;\ntypedef integer_t cpu_type_t;\ntypedef integer_t cpu_subtype_t;\ntypedef integer_t cpu_threadtype_t;\ntypedef int vm_prot_t;=g' "$src_dir/tmp/cctools/include/mach-o/loader.h"
+			cp -r $src_dir/tmp/cctools/include/* "$PREFIX/include/"
+			rm -rf "$src_dir/tmp"
+	fi
+
+}
 
 _clone()
 {
 
 	for r in $repo; do
 			x="$(basename "$r")"
-			echo -e "Target: ${x}\n\tCloning..."
+			echo -e "\tCloning..."
 			git clone "$r" "$src_dir/$x" >/dev/null 2>&1
 		if [ -d "$src_dir/$x" ]; then
 			echo -e "\tCloning done!"
@@ -553,6 +785,11 @@ _dep_installer()
 		done
 	fi
 
+# patches
+	if [ -n "$patch" ]; then
+		_patch "$patch"
+	fi
+
 }
 
 
@@ -560,16 +797,12 @@ build()
 {
 
 	for r in $repo; do
-			x="$(printf "$r" | sed 's/\//\n/g' | tail -n1)"
-		if [ -f "$src_dir/$x/$builded_tag" ]; then
-			echo -ne "\tSkipping already builded: '$x'\n"
-			return 0
-		fi
+			x="$(basename $r)"
 			echo -ne "\tBuilding: '${x}'\n"
 			echo -ne "\tCleaning with: '${clean_cmd}'\n"
 			$(cd "$src_dir/$x/$src" && ($clean_cmd) >/dev/null)
 			echo -ne "\tConfiguring with: '${configure}'\n"
-		if [ -z "$configure" ] || $(cd "$src_dir/$x/$src" && ./$configure >/dev/null); then
+		if [ -z "$configure" ] || $(cd "$src_dir/$x/$src" && $configure >/dev/null); then
 				echo -ne "\tCompiling with: '${build_cmd}'\n"
 			if $(cd "$src_dir/$x/$src" && ($build_cmd) >/dev/null); then
 					echo -ne "\tInstalling with: '${install_cmd}'\n"
@@ -593,11 +826,17 @@ build()
 quick_build()
 {
 
-	for i in $build_list; do
-		_utildeps "$i"
-		_clone
-		_dep_installer
-		build
+		local x
+	for x in $build_list; do
+			echo -e "Target: ${x}"
+		if [ -f "$src_dir/$x/$builded_tag" ]; then
+			echo -ne "\tSkipping already builded: '$x'\n"
+			continue
+		fi
+			_utildeps "$x"
+			_clone
+			_dep_installer
+			build
 	done
 
 }
