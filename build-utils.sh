@@ -177,7 +177,7 @@ _build_selector()
 		quick_build
 	fi
 	if [[ "$params" = *"tsschecker"* ]]; then
-		build_list="libgeneral libfragmentzip libplist libirecovery tsschecker"
+		build_list="libgeneral libfragmentzip libplist libimobiledevice-glue libirecovery libtatsu tsschecker"
 		quick_build
 	fi
 	if [[ "$params" = *"plist2json"* ]]; then
@@ -185,7 +185,7 @@ _build_selector()
 		quick_build
 	fi
 	if [[ "$params" = *"img4"* ]]; then
-		build_list="lzfse img4lib"
+		build_list="img4lib"
 		quick_build
 	fi
 	if [[ "$params" = *"img4tool"* ]]; then
@@ -245,7 +245,7 @@ _utildeps()
 			libs="libxml2"
 		fi
 			src="src"
-			configure="configure.sh"
+			configure="./configure.sh"
 			build_cmd="make"
 			clean_cmd="make clean"
 			install_cmd="make install"
@@ -316,7 +316,7 @@ _utildeps()
 			build_cmd="make"
 			clean_cmd="make clean"
 			install_cmd="make install"
-			repo="https://github.com/libimobiledevice/libtatsu"
+			repo="https://github.com/futurerestore/libtatsu"
 			submodules="no"
 	elif [ "$1" = "libimobiledevice" ]; then
 		if [ "$host" = "termux" ]; then
@@ -349,8 +349,11 @@ _utildeps()
 			repo="https://github.com/libimobiledevice/ideviceinstaller"
 			submodules="no"
 	elif [ "$1" = "libirecovery" ]; then
-		if [[ "$host" =~ (debian|ubuntu|termux) ]]; then
-			dep=""
+		if [ "$host" = "termux" ]; then
+			dep="libusb"
+			libs=""
+		elif [[ "$host" =~ (debian|ubuntu) ]]; then
+			dep="libusb-1.0"
 			libs=""
 		fi
 			src=""
@@ -456,12 +459,13 @@ _utildeps()
 			dep="libcurl4-openssl-dev libzip4 openssl zlib1g"
 			libs=""
 		fi
+			patch="tsschecker"
 			src=""
 			configure="./autogen.sh --prefix=$PREFIX"
 			build_cmd="make"
 			clean_cmd="make clean"
 			install_cmd="make install"
-			repo="https://github.com/mast3rz3ro/tsschecker"
+			repo="https://github.com/1Conan/tsschecker"
 			submodules="yes"
 
 	elif [ "$1" = "lzfse" ]; then
@@ -482,23 +486,23 @@ _utildeps()
 			libs=""
 		fi
 			src=""
-			configure=""
+			configure="make -C lzfse"
 			build_cmd="make"
 			clean_cmd="make clean"
 			install_cmd="cp $src_dir/img4lib/img4 $PREFIX/bin/"
 			repo="https://github.com/xerub/img4lib"
-			submodules="no"
+			submodules="yes"
 	elif [ "$1" = "img4tool" ]; then
 		if [[ "$host" =~ (debian|ubuntu|termux) ]]; then
 			dep=""
 			libs=""
 		fi
 			src=""
-			configure="./autogen.sh --prefix=$PREFIX"
+			configure="./autogen.sh --prefix=$PREFIX LDFLAGS=-L$PREFIX/lib" # fixes AC_CHECK_LIB issue on LZFSE
 			build_cmd="make"
 			clean_cmd="make clean"
 			install_cmd="make install"
-			repo="https://github.com/tihmstar/img4tool"
+			repo="https://github.com/mast3rz3ro/img4tool"
 			submodules="no"
 	elif [ "$1" = "kplooshfinder" ]; then
 		if [[ "$host" =~ (debian|ubuntu|termux) ]]; then
@@ -528,6 +532,7 @@ _utildeps()
 		if [[ "$host" =~ (debian|ubuntu|termux) ]]; then
 			dep=""
 			libs=""
+			patch="plist2json"
 		fi
 			src=""
 			configure=""
@@ -643,7 +648,7 @@ _utildeps()
 			submodules="no"
 	elif [ "$1" = "oldimgtool" ]; then
 		if [[ "$host" =~ (debian|ubuntu|termux) ]]; then
-			dep=""
+			dep="rust"
 			libs=""
 			patch="oldimgtool"
 		fi
@@ -718,6 +723,10 @@ _patch()
 			sed -i -e 's=<stdint.h>=\n#include <stdint.h>\ntypedef int integer_t;\ntypedef integer_t cpu_type_t;\ntypedef integer_t cpu_subtype_t;\ntypedef integer_t cpu_threadtype_t;\ntypedef int vm_prot_t;=g' "$src_dir/tmp/cctools/include/mach-o/loader.h"
 			cp -r $src_dir/tmp/cctools/include/* "$PREFIX/include/"
 			rm -rf "$src_dir/tmp"
+	elif [ "$1" = "plist2json" ]; then
+			sed -i "s#PCFLAGS \= \-O2#PCFLAGS \= \-I${PREFIX}\/include \-O2#" "$src_dir/$1/Makefile"
+	elif [ "$1" = "tsschecker" ]; then
+			export CFLAGS+=" $PREFIX/lib/libplist-2.0.a "
 	fi
 
 }
