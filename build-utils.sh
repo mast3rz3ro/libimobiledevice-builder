@@ -209,7 +209,7 @@ _build_selector()
 		quick_build
 	fi
 	if [[ "$params" = *"kernel64patcher"* ]]; then
-		build_list="libpatchfinder kernel64patcher"
+		build_list="libgeneral libinsn img3tool img4tool libpatchfinder kernel64patcher"
 		quick_build
 	fi
 	if [[ "$params" = *"kerneldiff"* ]]; then
@@ -453,21 +453,19 @@ _utildeps()
 			submodules="no"
 	elif [ "$1" = "tsschecker" ]; then
 		if [ "$host" = "termux" ]; then
-			dep="libcurl libzip openssl zlib" #autoconf-archive
+			dep="libcurl libzip openssl zlib"
 			libs=""
 		elif [[ "$host" =~ (debian|ubuntu) ]]; then
 			dep="libcurl4-openssl-dev libzip4 openssl zlib1g"
 			libs=""
 		fi
-			patch="tsschecker"
 			src=""
-			configure="./autogen.sh --prefix=$PREFIX"
+			configure="./autogen.sh --prefix=$PREFIX CFLAGS=$PREFIX/lib/libplist-2.0.a"
 			build_cmd="make"
 			clean_cmd="make clean"
 			install_cmd="make install"
 			repo="https://github.com/1Conan/tsschecker"
 			submodules="yes"
-
 	elif [ "$1" = "lzfse" ]; then
 		if [[ "$host" =~ (debian|ubuntu|termux) ]]; then
 			dep=""
@@ -607,7 +605,7 @@ _utildeps()
 			build_cmd="make"
 			clean_cmd="make clean"
 			install_cmd="make install INSTALL_PREFIX=$PREFIX"
-			repo="https://github.com/mast3rz3ro/iBoot64Patcher"
+			repo="https://github.com/mast3rz3ro/iBoot64Patcher-tihmstar"
 			submodules="no"
 	elif [ "$1" = "iboot32patcher" ]; then
 		if [[ "$host" =~ (debian|ubuntu|termux) ]]; then
@@ -661,7 +659,7 @@ _utildeps()
 			submodules="no"
 	elif [ "$1" = "hfsplus" ]; then
 		if [ "$host" = "termux" ]; then
-			dep=""
+			dep="cmake"
 			libs="android"
 		elif [[ "$host" =~ (debian|ubuntu) ]]; then
 			dep=""
@@ -725,8 +723,6 @@ _patch()
 			rm -rf "$src_dir/tmp"
 	elif [ "$1" = "plist2json" ]; then
 			sed -i "s#PCFLAGS \= \-O2#PCFLAGS \= \-I${PREFIX}\/include \-O2#" "$src_dir/$1/Makefile"
-	elif [ "$1" = "tsschecker" ]; then
-			export CFLAGS+=" $PREFIX/lib/libplist-2.0.a "
 	fi
 
 }
